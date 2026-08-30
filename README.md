@@ -1,55 +1,87 @@
-# VLM4TS-inspired prototype
+# VLM4TS: Vision-Language Time-Series Anomaly Screening
 
-An independent educational prototype for time-series anomaly screening, inspired by [He et al.](https://arxiv.org/abs/2506.06836) and the [upstream VLM4TS repository](https://github.com/ZLHe0/VLM4TS). It is not an official implementation or a reproduction of the paper's results.
+> Independent Python prototype inspired by He et al.,
+> [“Harnessing Vision-Language Models for Time Series Anomaly Detection”](https://arxiv.org/abs/2506.06836)
+> (AAAI 2026 Oral).
+> Python 3.11 · CPU only · CLIP ViT-B/32 · optional `gpt-4o-mini` · Streamlit.
+
+Each sliding window becomes a line-plot image and a normalized CLIP embedding:
+
+```python
+score = 1 - cosine(window_embedding, median_embedding)
+```
+
+High-score windows become anomaly candidates. An optional VLM call receives one
+full-series image and returns a keep/drop mask for those candidates.
+
+> **Disclaimer:** This is an independent educational implementation. It is not
+> affiliated with, endorsed by, or maintained by the paper's authors, their
+> institutions, AAAI, or the upstream VLM4TS team. It does not reproduce the
+> paper's reported results.
+
+---
+
+## Install (uv)
+
+```bash
+uv sync --python 3.11
+uv sync --extra dev
+```
+
+The first scoring run downloads and caches the OpenAI CLIP checkpoint from
+Hugging Face. Later runs reuse that cache.
+
+## Streamlit app
+
+```bash
+uv run streamlit run app.py
+```
+
+Upload a CSV containing a numeric `value` column, or any CSV whose first column
+contains finite numbers. The app renders the series, shows screening candidates,
+and can optionally ask `gpt-4o-mini` to refine them.
+
+## Synthetic demo (not benchmark reproduction)
+
+```bash
+uv run python -m vlm4ts.vit4ts --demo
+# demo: evaluated scores=33, candidates=1
+
+uv run python scripts/bench.py
+# synthetic smoke: evaluated_scores=33 candidates=1
+```
 
 ![Illustrative synthetic score curve](assets/score_curve.png)
 
 *Illustrative synthetic output, not an evaluation result.*
 
-## How it works
+The demo checks finite scores and candidate generation. The benchmark script is
+only a synthetic runtime smoke test: neither command evaluates a public dataset
+or substantiates a performance claim.
 
-The prototype renders each sliding time-series window as a line plot, embeds it with CLIP ViT-B/32, and scores its cosine distance from the median window embedding. High-score windows become anomaly candidates. An optional `gpt-4o-mini` call receives one rendered full-series image and returns a keep/drop mask for those candidates.
+## Implemented scope
 
-## Quick start
+- Sliding 224-sample windows rendered as RGB line plots.
+- Normalized OpenAI CLIP ViT-B/32 image embeddings.
+- Cosine distance from the median window embedding.
+- Top-alpha candidate selection over finite, non-constant scores.
+- Optional `gpt-4o-mini` keep/drop refinement in one API call.
+- Streamlit CSV upload, visualization, and candidate display.
 
-[Python 3.11](https://www.python.org/) is the only supported runtime. Install [uv](https://docs.astral.sh/uv/), then run from the repository root:
+The paper uses ViT-B/16, patch-level multi-scale cross-patch scoring, shared
+global y-limits, GPT-4o, and 11 NAB/NASA/YAHOO benchmark datasets. Those methods
+and benchmark reproductions are outside this release's scope.
 
-```bash
-uv sync --extra dev
-uv run python -m vlm4ts.vit4ts --demo
-uv run python scripts/bench.py
-uv run streamlit run app.py
-```
+## Data and optional VLM
 
-The first scoring run downloads and caches the OpenAI CLIP checkpoint from Hugging Face. Later runs reuse that cache.
+Without `OPENAI_API_KEY`, candidates are returned unchanged. When VLM refinement
+is enabled, the rendered uploaded series is sent to OpenAI and may incur API
+costs. Do not include secrets in uploaded data. See OpenAI's
+[data controls documentation](https://developers.openai.com/api/docs/guides/your-data).
 
-## Input, privacy, and security
-
-The Streamlit app accepts a CSV containing a numeric `value` column, or uses its first column. All values must be finite numbers.
-
-VLM verification is optional. When enabled, the rendered uploaded series is sent to OpenAI using `gpt-4o-mini`; this may incur API costs. Without `OPENAI_API_KEY`, candidates are returned unchanged. Do not include secrets in uploaded data. OpenAI documents its retention controls in [Your data](https://developers.openai.com/api/docs/guides/your-data).
-
-Use this repository's Forgejo issues for questions and non-sensitive bug reports. Report vulnerabilities privately to `zoonyanapat@gmail.com`; do not post exploit details publicly. The default branch is supported until releases exist, after which only the latest release is supported.
-
-## Scope and limitations
-
-| | Paper | This prototype |
-| --- | --- | --- |
-| Vision encoder | ViT-B/16 | CLIP ViT-B/32 |
-| Scoring | Patch-level, multi-scale cross-patch | Window cosine distance from a median embedding |
-| Plot scaling | Shared global y-limits | Per-window autoscaling |
-| VLM | GPT-4o | Optional `gpt-4o-mini` |
-| Evaluation | 11 NAB/NASA/YAHOO datasets | Synthetic smoke data only |
-
-`scripts/bench.py` checks that the pipeline runs. It does not evaluate a public dataset, reproduce paper-reported results, or substantiate a performance claim.
-
-## Layout
-
-```
-src/vlm4ts/       canonical package
-app.py             Streamlit entry point
-scripts/bench.py   synthetic smoke check
-```
+Use this repository's Forgejo issues for questions and non-sensitive bug reports.
+Report vulnerabilities privately to `zoonyanapat@gmail.com`; do not post exploit
+details publicly.
 
 ## Verification
 
@@ -70,6 +102,15 @@ docker run --rm vlm4ts-public-readiness:check python -c "import vlm4ts; print('c
 
 CI is the clean Docker build gate.
 
+## Research source
+
+Zelin He, Sarah Alnegheimish, and Matthew Reimherr, “Harnessing Vision-Language
+Models for Time Series Anomaly Detection,” arXiv:2506.06836 (2025), accepted at
+AAAI 2026 (Oral). The paper and its authors are the research source, not
+maintainers or contributors to this repository. The associated
+[upstream implementation](https://github.com/ZLHe0/VLM4TS) is likewise not
+maintained here.
+
 ## License
 
-[MIT](LICENSE)
+MIT for code — see [`LICENSE`](LICENSE).
