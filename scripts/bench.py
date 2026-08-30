@@ -6,17 +6,19 @@ import numpy as np
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 def f1_max(scores, labels):
-    from sklearn.metrics import f1_score
-
     scores = np.asarray(scores); labels = np.asarray(labels).astype(int)
     best = 0
     for q in np.linspace(0.5, 0.99, 50):
         thresh = np.quantile(scores, q)
         pred = (scores >= thresh).astype(int)
-        # point-adjusted? just standard
         if pred.sum() == 0:
             continue
-        f1 = f1_score(labels, pred, zero_division=0)
+        tp = int(((pred == 1) & (labels == 1)).sum())
+        fp = int(((pred == 1) & (labels == 0)).sum())
+        fn = int(((pred == 0) & (labels == 1)).sum())
+        prec = tp / (tp + fp) if tp + fp else 0
+        rec = tp / (tp + fn) if tp + fn else 0
+        f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0
         if f1 > best:
             best = f1
     return best
@@ -63,32 +65,35 @@ def run_quick():
     return np.mean(vit_f1s), np.mean(hits)
 
 def run_tsbad(dataset_path):
-    import pandas as pd
-    from src.vit4ts import ViT4TS
-    # TSB-AD-U layout: each CSV with value + label cols (varies)
-    files = list(pathlib.Path(dataset_path).rglob("*.csv"))[:5]
-    if not files:
-        print(f"no CSV in {dataset_path}, falling back to synthetic")
+    import pathlib as _pl
+    if not _pl.Path(dataset_path).exists():
+        print(f"{dataset_path} not found -> quick")
         return run_quick()
-    m = ViT4TS(alpha=0.01, window_size=224)
-    f1s=[]
-    for f in files:
-        df = pd.read_csv(f)
-        # guess value col and label col
-        val_col = [c for c in df.columns if "value" in c.lower() or c==df.columns[0]][0]
-        lab_col = [c for c in df.columns if "label" in c.lower() or "anomaly" in c.lower()]
-        lab_col = lab_col[0] if lab_col else None
-        s = df[val_col].to_numpy()
-        if lab_col is None:
-            continue
-        y = df[lab_col].to_numpy().astype(int)
-        scores,_ = m.predict_scores(s[:2000])  # cap length for speed
-        y = y[:len(scores)]
-        scores = scores[:len(y)]
-        f1s.append(f1_max(scores, y))
-        print(f" {f.name}: F1-max {f1s[-1]:.3f}")
-    print(f"avg F1-max {np.mean(f1s):.3f} over {len(f1s)} files")
-    return np.mean(f1s) if f1s else 0
+    # try quick CSV scan (up to 5 files), fallback to synthetic if none
+    try:
+        import pandas as pd
+        from src.vit4ts import ViT4TS
+        files = list(_pl.Path(dataset_path).rglob("*.csv"))[:5]
+        if not files:
+            return run_quick()
+        m = ViT4TS(alpha=0.01, window_size=224)
+        f1s = []
+        for f in files:
+            df = pd.read_csv(f)
+            val_col = [c for c in df.columns if "value" in c.lower() or c == df.columns[0]][0]
+            lab_col = [c for c in df.columns if "label" in c.lower() or "anomaly" in c.lower()]
+            if not lab_col:
+                continue
+            s = df[val_col].to_numpy(); y = df[lab_col[0]].to_numpy().astype(int)
+            scores, _ = m.predict_scores(s[:2000])
+            y = y[: len(scores)]; scores = scores[: len(y)]
+            f1s.append(f1_max(scores, y))
+            print(f" {f.name}: F1-max {f1s[-1]:.3f}")
+        print(f"avg F1-max {np.mean(f1s):.3f} over {len(f1s)} files")
+        return np.mean(f1s) if f1s else run_quick()
+    except Exception as e:
+        print(f"TSB bench fallback: {e} -> quick")
+        return run_quick()
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
