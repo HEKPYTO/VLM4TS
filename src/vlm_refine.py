@@ -7,12 +7,6 @@ from src.render import series_to_pil
 
 
 
-def _pil_to_b64(img: Image.Image) -> str:
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode()
-
-
 def call_vlm(full_img: Image.Image, prompt: str):
     """Call gpt-4o-mini with image + prompt, parse JSON list of 0/1.
     Returns list[int] mask. Falls back to no filtering if no API key."""
@@ -23,7 +17,8 @@ def call_vlm(full_img: Image.Image, prompt: str):
         from openai import OpenAI
 
         client = OpenAI(api_key=api_key)
-        b64 = _pil_to_b64(full_img)
+        buf = io.BytesIO(); full_img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode()
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -39,12 +34,11 @@ def call_vlm(full_img: Image.Image, prompt: str):
             temperature=0,
         )
         text = resp.choices[0].message.content or ""
-        # extract JSON list from text
-        start = text.find("[")
-        end = text.rfind("]") + 1
-        if start != -1 and end > start:
-            return json.loads(text[start:end])
-        return json.loads(text)
+        start = text.find("["); end = text.rfind("]") + 1
+        try:
+            return json.loads(text[start:end]) if start != -1 and end > start else json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            return None
     except Exception:
         return None
 
@@ -69,9 +63,7 @@ def refine(scores, candidates, series):
     mask = call_vlm(img, prompt)
     if mask is None:
         return list(candidates)
-    # mask should be same length as candidates
     if not isinstance(mask, list) or len(mask) != len(candidates):
-        # try to handle per-series mask (len == len(series))
         if isinstance(mask, list) and len(mask) == len(series):
             return [c for c in candidates if 0 <= c < len(mask) and mask[c] == 1]
         return list(candidates)

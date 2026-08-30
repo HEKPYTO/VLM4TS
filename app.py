@@ -34,11 +34,10 @@ fig, ax = plt.subplots(figsize=(10,3))
 ax.plot(s, color="black", lw=1); ax.set_title("Series")
 for c in cands: ax.axvline(c, color="orange", alpha=0.3)
 st.pyplot(fig)
-
-fig2, ax2 = plt.subplots(figsize=(10,2))
-ax2.plot(scores, color="steelblue", lw=1); ax2.set_title("Anomaly score (1 - cosine)")
-ax2.axhline(np.quantile(scores, 1-alpha), color="red", ls="--", label="threshold")
-ax2.legend(); st.pyplot(fig2)
+fig, ax = plt.subplots(figsize=(10,2))
+ax.plot(scores, color="steelblue", lw=1); ax.set_title("Anomaly score (1 - cosine)")
+ax.axhline(np.quantile(scores, 1-alpha), color="red", ls="--", label="threshold")
+ax.legend(); st.pyplot(fig)
 
 if use_vlm:
     kept = refine(scores, cands, s)
