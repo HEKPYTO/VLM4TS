@@ -1,0 +1,24 @@
+[project]
+name = "vlm4ts-portfolio"
+version = "0.1.0"
+description = "VLM4TS — zero-shot time-series anomaly detection via vision-language models (ViT4TS + VLM verification)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "torch==2.4.0",
+  "open-clip-torch==2.24.0",
+  "pillow==10.4.0",
+  "matplotlib==3.9.2",
+  "numpy==1.26.4",
+  "pandas==2.2.2",
+  "streamlit==1.38.0",
+  "openai==1.45.0",
+  "pytest==8.3.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
