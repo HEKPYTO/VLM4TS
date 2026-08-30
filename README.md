@@ -1,44 +1,50 @@
-# VLM4TS — Zero-Shot Time Series Anomaly Detection via Vision-Language Models
+# VLM4TS-inspired prototype
 
-> **Paper:** He et al. *Harnessing Vision-Language Models for Time Series Anomaly Detection* — AAAI 2026 Oral (arXiv:2506.06836) · [Proceedings](https://ojs.aaai.org/index.php/AAAI/article/view/39319) · [Original repo](https://github.com/ZLHe0/VLM4TS)
+An independent educational prototype for time-series anomaly screening. It is inspired by [He et al.](https://arxiv.org/abs/2506.06836) and the [upstream VLM4TS repository](https://github.com/ZLHe0/VLM4TS), not an official implementation or a reproduction of its results.
 
-Training-free, CPU-only TSAD: render time series as line plots → **ViT-B/32** screening → **VLM** verification (single API call). No training, no fine-tuning.
+The paper uses ViT-B/16, patch-level multi-scale cross-patch scoring, shared global y-limits, GPT-4o, and 11 NAB/NASA/YAHOO benchmark datasets. This prototype uses ViT-B/32 window embeddings, cosine distance to a median embedding, per-window autoscaling, and optional `gpt-4o-mini` verification.
 
-## How it works
+## Run
 
-1. **ViT4TS screening** — sliding window (224) → plot → CLIP ViT-B/32 embedding → anomaly score = `1 - cosine(median)` → candidates at `α=0.01` top quantile.
-2. **VLM verification** — global plot + candidate intervals → one `gpt-4o-mini` call → filtered intervals (36× token saving vs per-window VLM).
-
-## Quick start
+Python 3.11 is the only supported runtime.
 
 ```bash
-uv sync --python 3.11   # or pip install -e .
-pytest -q
-python -m src.vit4ts --demo
-streamlit run app.py
+uv sync --extra dev
+uv run python -m vlm4ts.vit4ts --demo
+uv run python scripts/bench.py
+uv run streamlit run app.py
 ```
 
-Set `OPENAI_API_KEY` to enable VLM verification (otherwise ViT4TS-only mode).
+The first scoring run downloads and caches the OpenAI CLIP checkpoint from Hugging Face; later runs can use that cache. `scripts/bench.py` is a synthetic smoke check only. It does not evaluate a public dataset or reproduce paper-reported results.
 
-## Project structure
+## VLM disclosure
+
+VLM verification is optional. When enabled, the rendered uploaded series is sent to OpenAI using `gpt-4o-mini`; this may incur API costs. Without `OPENAI_API_KEY`, candidates are returned unchanged. By default, OpenAI documents up to 30-day abuse-monitoring retention; eligible customers may use modified or zero data-retention controls. See [Your data](https://developers.openai.com/api/docs/guides/your-data).
+
+The app accepts a CSV `value` column, or its first column, provided all values are finite numbers.
+
+## Layout
 
 ```
-src/render.py      # series → 224×224 PIL plot
-src/vit4ts.py      # ViT-B/32 screening
-src/vlm_refine.py  # VLM single-call verification
-app.py             # Streamlit demo (upload CSV → scores → intervals)
-scripts/bench.py   # quick benchmark (synthetic + TSB-AD-U if present)
+src/vlm4ts/       canonical package
+app.py             Streamlit entry point
+scripts/bench.py   synthetic smoke check
 ```
 
-## Benchmark
+## Verification
 
 ```bash
-python scripts/bench.py --quick          # synthetic smoke test (<10 s)
-python scripts/bench.py --dataset TSB-AD-U --metric F1-max
+uv lock --check && uv sync --extra dev --frozen
+uv run --extra dev ruff check .
+uv run --extra dev ruff format --check .
+uv run --extra dev python -m pytest -q
+uv run --extra dev pre-commit run --all-files
+uv export --frozen --no-dev --no-emit-project --no-annotate --no-header | uv run --extra dev pip-audit -r /dev/stdin --disable-pip --no-deps
+uv build
+tmpdir=$(mktemp -d); uv run --python 3.11 --with "$(pwd)"/dist/*.whl --no-project --directory "$tmpdir" python -c "import vlm4ts; print('wheel ok')"
+docker compose config --quiet
+docker build -t vlm4ts-public-readiness:check .
+docker run --rm vlm4ts-public-readiness:check python -c "import vlm4ts; print('container ok')"
 ```
 
-## References
-
-- He et al., AAAI 2026 Oral. `10.1609/aaai.v40i26.39319`
-- `ZLHe0/VLM4TS` (MIT)
-
+CI is the clean Docker build gate.

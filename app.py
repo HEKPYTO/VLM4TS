@@ -3,55 +3,62 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from src.vit4ts import ViT4TS
-from src.vlm_refine import refine
+from vlm4ts.vit4ts import ViT4TS
+from vlm4ts.vlm_refine import refine
 
-st.set_page_config(page_title="VLM4TS Demo", layout="wide")
-st.title("VLM4TS — TS → Plot → Anomaly (training-free)")
-st.caption("ViT-B/32 screening + single VLM call verification. No training.")
+st.set_page_config(page_title="VLM4TS prototype", layout="wide")
+st.title("VLM4TS-inspired anomaly screening prototype")
+st.caption("Independent educational prototype; not an official reproduction of the paper.")
 
 with st.sidebar:
     alpha = st.slider("alpha (top quantile)", 0.005, 0.05, 0.01, 0.005)
-    use_vlm = st.checkbox("VLM verification (needs OPENAI_API_KEY)", False)
-    st.markdown("Upload CSV with a `value` column (or single column).")
+    use_vlm = st.checkbox("VLM verification (needs OPENAI_API_KEY)")
+    st.caption("Enabling this sends the rendered series to OpenAI and may incur API costs.")
+    st.markdown("Upload a CSV with a `value` column, or use its first column.")
 
-f = st.file_uploader("CSV", type=["csv"])
-if f is None:
-    st.info("Upload a CSV or try synthetic: click Run Demo")
-    if not st.button("Run Demo (synthetic)"):
+uploaded = st.file_uploader("CSV", type=["csv"])
+if uploaded is None:
+    if not st.button("Run synthetic demo"):
+        st.info("Upload a CSV or run the synthetic demo.")
         st.stop()
-    np.random.seed(0)
-    s = np.sin(np.linspace(0, 20, 500)) + np.random.randn(500) * 0.15
-    s[200:210] += 3
-    df = pd.DataFrame({"value": s})
+    series = np.sin(np.linspace(0, 20, 256))
+    series[120:130] += 3
 else:
-    df = pd.read_csv(f)
-    s = df.iloc[:, 0].to_numpy() if "value" not in df.columns else df["value"].to_numpy()
+    try:
+        frame = pd.read_csv(uploaded)
+    except (OSError, pd.errors.ParserError, UnicodeDecodeError) as error:
+        st.error(f"Could not read CSV: {error}")
+        st.stop()
+    if frame.empty:
+        st.error("CSV has no rows.")
+        st.stop()
+    values = frame["value"] if "value" in frame else frame.iloc[:, 0]
+    series = pd.to_numeric(values, errors="coerce").to_numpy()
+    if not series.size or not np.isfinite(series).all():
+        st.error("CSV values must be finite numbers.")
+        st.stop()
 
-m = ViT4TS(alpha=alpha, window_size=224)
-with st.spinner("ViT4TS scoring..."):
-    scores, _ = m.predict_scores(s)
-cands = m.candidates(scores)
-st.write(f"ViT4TS candidates: {len(cands)} / {len(s)}")
+model = ViT4TS(alpha=alpha, window_size=224)
+with st.spinner("Scoring windows..."):
+    scores, _ = model.predict_scores(series)
+candidates = model.candidates(scores)
+st.write(f"Candidates: {len(candidates)} / {len(series)}")
 
-fig, ax = plt.subplots(figsize=(10, 3))
-ax.plot(s, color="black", lw=1)
-ax.set_title("Series")
-for c in cands:
-    ax.axvline(c, color="orange", alpha=0.3)
+fig, axis = plt.subplots(figsize=(10, 3))
+axis.plot(series, color="black", lw=1)
+for candidate in candidates:
+    axis.axvline(candidate, color="orange", alpha=0.3)
 st.pyplot(fig)
-fig, ax = plt.subplots(figsize=(10, 2))
-ax.plot(scores, color="steelblue", lw=1)
-ax.set_title("Anomaly score (1 - cosine)")
-ax.axhline(np.quantile(scores, 1 - alpha), color="red", ls="--", label="threshold")
-ax.legend()
+
+fig, axis = plt.subplots(figsize=(10, 2))
+axis.plot(scores, color="steelblue", lw=1)
+evaluated_scores = scores[np.isfinite(scores)]
+if evaluated_scores.size:
+    axis.axhline(np.quantile(evaluated_scores, 1 - alpha), color="red", ls="--")
 st.pyplot(fig)
 
 if use_vlm:
-    kept = refine(scores, cands, s)
-    st.success(f"VLM kept {len(kept)} / {len(cands)}: {kept[:20]}")
+    kept = refine(scores, candidates, series)
+    st.success(f"VLM kept {len(kept)} / {len(candidates)}: {kept[:20]}")
 else:
-    st.info(f"Intervals (ViT4TS-only): {cands[:20]}{'...' if len(cands)>20 else ''}")
-    if st.button("Explain (VLM) — needs API key"):
-        kept = refine(scores, cands, s)
-        st.write("VLM filtered:", kept[:20])
+    st.info(f"VLM disabled; screening candidates: {candidates[:20]}")

@@ -1,24 +1,15 @@
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
-
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/app/.venv/bin:$PATH"
 WORKDIR /app
 
-# system deps for open-clip / matplotlib
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl && rm -rf /var/lib/apt/lists/*
-
-COPY pyproject.toml README.md ./
-# use uv if available, else pip
-RUN pip install --upgrade pip && pip install -e .
-
+COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src/ src/
+RUN pip install --no-cache-dir uv==0.12.7 && uv sync --frozen --no-dev
+
 COPY app.py ./
 COPY scripts/ scripts/
-COPY assets/ assets/ 2>/dev/null || true
+COPY assets/ assets/
 
 EXPOSE 8501
-
 CMD ["streamlit", "run", "app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]

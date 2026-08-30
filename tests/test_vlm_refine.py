@@ -1,29 +1,32 @@
-def test_vlm_refine_filters(monkeypatch):
-    from src.vlm_refine import refine
+import numpy as np
 
-    monkeypatch.setattr("src.vlm_refine.call_vlm", lambda *a, **k: [1, 0])
-    out = refine(scores=[0.1, 0.9, 0.8], candidates=[1, 2], series=[0] * 4)
-    assert out == [1]
+from vlm4ts.vlm_refine import refine
 
 
-def test_vlm_refine_empty():
-    from src.vlm_refine import refine
-
-    assert refine(scores=[], candidates=[], series=[0, 1]) == []
-
-
-def test_vlm_refine_fallback(monkeypatch):
-    from src.vlm_refine import refine
-
-    monkeypatch.setattr("src.vlm_refine.call_vlm", lambda *a, **k: None)
-    out = refine(scores=[0.5, 0.6], candidates=[0, 1], series=[0, 1, 2])
-    assert out == [0, 1]
+def test_refine_accepts_numpy_scores_and_filters(monkeypatch):
+    monkeypatch.setattr("vlm4ts.vlm_refine.call_vlm", lambda *_: [1, 0])
+    assert refine(np.array([0.1, 0.9, 0.8]), [1, 2], [0] * 4) == [1]
 
 
-def test_vlm_refine_per_series_mask(monkeypatch):
-    from src.vlm_refine import refine
+def test_refine_prompt_uses_candidate_indexed_scores(monkeypatch):
+    captured = {}
 
-    # per-series mask length == len(series)
-    monkeypatch.setattr("src.vlm_refine.call_vlm", lambda *a, **k: [0, 0, 1, 0])
-    out = refine(scores=[0.1, 0.9, 0.8], candidates=[1, 2], series=[0] * 4)
-    assert out == [2]
+    def capture_prompt(_image, prompt):
+        captured["prompt"] = prompt
+        return [1, 0]
+
+    monkeypatch.setattr("vlm4ts.vlm_refine.call_vlm", capture_prompt)
+    assert refine(np.array([0.111, 0.222, 0.333, 0.444]), [3, 1], [0] * 4) == [3]
+    assert "[(3, 0.444), (1, 0.222)]" in captured["prompt"]
+    assert "0.111" not in captured["prompt"]
+
+
+def test_refine_empty_and_invalid_masks_fall_back(monkeypatch):
+    assert refine(np.array([]), [], [0, 1]) == []
+    monkeypatch.setattr("vlm4ts.vlm_refine.call_vlm", lambda *_: [True, False])
+    assert refine(np.array([0.5, 0.6]), [0, 1], [0, 1, 2]) == [0, 1]
+
+
+def test_refine_without_key_does_not_call_openai(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert refine(np.array([0.5]), [0], [0, 1]) == [0]

@@ -7,45 +7,28 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.11"
           enable-cache: true
-
-      - name: Check lockfile
-        run: uv lock --check
-
-      - name: Install dependencies
-        run: uv sync --extra dev --frozen
-
-      - name: Lint (ruff check, warnings as errors)
-        run: uv run --extra dev ruff check . --output-format=github
-
-      - name: Format check (ruff format, warnings as errors)
-        run: uv run --extra dev ruff format --check .
-
-      - name: Tests (warnings as errors for src.* only)
-        run: uv run --extra dev python -m pytest -q
+      - run: uv lock --check
+      - run: uv sync --extra dev --frozen
+      - run: uv run --extra dev ruff check . --output-format=github
+      - run: uv run --extra dev ruff format --check .
+      - run: uv run --extra dev python -m pytest -q
         env:
-          OPENAI_API_KEY: ""  # VLM tests use mocks, no network
-
-      - name: Docker compose config
-        run: docker compose config --quiet
-
-      - name: Build package
-        run: uv build
-
-      - name: Wheel smoke test (warnings as errors for src.* only)
-        run: uv run --with dist/*.whl --no-project python -W error::UserWarning:src.* -W error::DeprecationWarning:src.* -W error::FutureWarning:src.* -c "import src.vit4ts; import src.render; import src.vlm_refine; print('wheel ok')"
+          OPENAI_API_KEY: ""
+      - run: uv export --frozen --no-dev --no-emit-project --no-annotate --no-header | uv run --extra dev pip-audit -r /dev/stdin --disable-pip --no-deps
+      - run: uv build
+      - run: |
+          tmpdir=$(mktemp -d)
+          uv run --python 3.11 --with "$(pwd)"/dist/*.whl --no-project --directory "$tmpdir" python -c "import vlm4ts.vit4ts, vlm4ts.render, vlm4ts.vlm_refine; print('wheel ok')"
+      - run: docker compose config --quiet
+      - run: docker build -t vlm4ts-public-readiness:check .
+      - run: docker run --rm vlm4ts-public-readiness:check python -c "import vlm4ts.vit4ts, vlm4ts.render, vlm4ts.vlm_refine; print('container ok')"

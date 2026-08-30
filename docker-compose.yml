@@ -1,23 +1,12 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     ports:
       - "8501:8501"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-    volumes:
-      - ./data:/app/data:ro
-    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
 
   bench:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-    volumes:
-      - ./data:/app/data:ro
-    command: python scripts/bench.py --quick
+    build: .
+    command: python scripts/bench.py
     profiles: ["bench"]

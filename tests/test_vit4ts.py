@@ -1,33 +1,27 @@
-def test_vit4ts_scores_shape():
-    import numpy as np
+import numpy as np
 
-    from src.vit4ts import ViT4TS
-
-    m = ViT4TS(alpha=0.01, window_size=224)
-    series = np.random.randn(500)
-    scores, ts = m.predict_scores(series)
-    assert len(scores) == 500 and len(ts) == 500
-    assert scores.shape == (500,)
+from vlm4ts.vit4ts import ViT4TS
 
 
-def test_vit4ts_candidates():
-    import numpy as np
-
-    from src.vit4ts import ViT4TS
-
-    m = ViT4TS(alpha=0.01, window_size=224)
-    scores = np.array([0.1, 0.9, 0.8, 0.2, 0.95])
-    cands = m.candidates(scores)
-    # alpha 0.01 => top 1% -> at least max element qualifies
-    assert 4 in cands or 1 in cands
+def test_candidates_select_high_scores_only():
+    model = type("Model", (), {"alpha": 0.2})()
+    assert ViT4TS.candidates(model, np.array([0.1, 0.9, 0.8])) == [1]
 
 
-def test_vit4ts_short_series():
-    import numpy as np
+def test_candidates_skip_empty_constant_and_short_series_scores():
+    model = type("Model", (), {"alpha": 0.01})()
+    assert ViT4TS.candidates(model, np.array([])) == []
+    assert ViT4TS.candidates(model, np.zeros(10)) == []
+    assert ViT4TS.candidates(model, np.full(10, 0.5)) == []
 
-    from src.vit4ts import ViT4TS
 
-    m = ViT4TS(alpha=0.01, window_size=224)
-    s = np.random.randn(10)
-    scores, ts = m.predict_scores(s)
-    assert len(scores) == 10
+def test_short_series_predicts_constant_scores_with_no_candidates():
+    model = type("Model", (), {"alpha": 0.01, "ws": 224})()
+    scores, _ = ViT4TS.predict_scores(model, np.arange(10))
+    assert ViT4TS.candidates(model, scores) == []
+
+
+def test_candidates_skip_nan_padded_tail_after_final_evaluated_maximum():
+    model = type("Model", (), {"alpha": 0.2})()
+    scores = np.array([0.1, 0.2, 0.9, np.nan, np.nan])
+    assert ViT4TS.candidates(model, scores) == [2]

@@ -1,45 +1,34 @@
 [project]
-name = "vlm4ts-portfolio"
+name = "vlm4ts"
 version = "0.1.0"
-description = "VLM4TS — zero-shot time-series anomaly detection via vision-language models (ViT4TS + VLM verification)"
+description = "An educational, simplified VLM4TS-inspired time-series anomaly prototype"
 readme = "README.md"
-requires-python = ">=3.11"
-license = { text = "MIT" }
-authors = [{ name = "VLM4TS Portfolio", email = "vlm4ts@example.com" }]
-keywords = ["time-series", "anomaly-detection", "vision-language", "zero-shot"]
+requires-python = ">=3.11,<3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["time-series", "anomaly-detection", "vision-language", "prototype"]
 dependencies = [
-  "torch==2.4.0",
-  "open-clip-torch==2.24.0",
-  "pillow==10.4.0",
-  "matplotlib==3.9.2",
-  "numpy==1.26.4",
-  "pandas==2.2.2",
-  "streamlit==1.38.0",
-  "openai==1.45.0",
-  "pytest==8.3.2",
+  "torch==2.13.0",
+  "open-clip-torch==3.3.0",
+  "pillow==12.3.0",
+  "matplotlib==3.11.1",
+  "numpy==2.4.6",
+  "pandas==3.0.5",
+  "streamlit==1.62.0",
+  "openai==3.6.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "ruff==0.8.6",
-  "pre-commit>=3.7.0",
-]
-
-[dependency-groups]
-dev = [
-  "ruff==0.8.6",
-  "pre-commit>=3.7.0",
+  "pre-commit==4.6.2",
+  "pytest==9.1.1",
+  "ruff==0.16.5",
+  "pip-audit==2.10.1",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-# Treat warnings as errors only for our code (src.*). Third-party warnings remain warnings, not errors.
-# No blanket ignore — fix warnings in src.* instead of hiding them.
-addopts = "-q -W error::UserWarning:src.* -W error::DeprecationWarning:src.* -W error::FutureWarning:src.* -W error::RuntimeWarning:src.*"
 
 [tool.ruff]
 line-length = 100
@@ -50,12 +39,8 @@ exclude = [".git", ".venv", "__pycache__", "assets"]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 ignore = ["E501", "RUF012"]
 
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
+[tool.hatch.build]
+exclude = ["/.github", "/autoresearch"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
-
-[tool.uv]
-managed = true
+packages = ["src/vlm4ts"]

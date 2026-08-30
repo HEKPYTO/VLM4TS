@@ -1,0 +1,13 @@
+.git
+.venv
+.env
+.streamlit
+__pycache__
+*.py[cod]
+.pytest_cache
+dist
+build
+autoresearch
+data
+open_clip
+checkpoints
