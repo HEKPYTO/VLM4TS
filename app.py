@@ -1,5 +1,8 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import streamlit as st
-import pandas as pd, numpy as np, matplotlib.pyplot as plt
+
 from src.vit4ts import ViT4TS
 from src.vlm_refine import refine
 
@@ -18,26 +21,31 @@ if f is None:
     if not st.button("Run Demo (synthetic)"):
         st.stop()
     np.random.seed(0)
-    s = np.sin(np.linspace(0, 20, 500)) + np.random.randn(500)*0.15
-    s[200:210] += 3; df = pd.DataFrame({"value": s})
+    s = np.sin(np.linspace(0, 20, 500)) + np.random.randn(500) * 0.15
+    s[200:210] += 3
+    df = pd.DataFrame({"value": s})
 else:
     df = pd.read_csv(f)
     s = df.iloc[:, 0].to_numpy() if "value" not in df.columns else df["value"].to_numpy()
 
 m = ViT4TS(alpha=alpha, window_size=224)
 with st.spinner("ViT4TS scoring..."):
-    scores,_ = m.predict_scores(s)
+    scores, _ = m.predict_scores(s)
 cands = m.candidates(scores)
 st.write(f"ViT4TS candidates: {len(cands)} / {len(s)}")
 
-fig, ax = plt.subplots(figsize=(10,3))
-ax.plot(s, color="black", lw=1); ax.set_title("Series")
-for c in cands: ax.axvline(c, color="orange", alpha=0.3)
+fig, ax = plt.subplots(figsize=(10, 3))
+ax.plot(s, color="black", lw=1)
+ax.set_title("Series")
+for c in cands:
+    ax.axvline(c, color="orange", alpha=0.3)
 st.pyplot(fig)
-fig, ax = plt.subplots(figsize=(10,2))
-ax.plot(scores, color="steelblue", lw=1); ax.set_title("Anomaly score (1 - cosine)")
-ax.axhline(np.quantile(scores, 1-alpha), color="red", ls="--", label="threshold")
-ax.legend(); st.pyplot(fig)
+fig, ax = plt.subplots(figsize=(10, 2))
+ax.plot(scores, color="steelblue", lw=1)
+ax.set_title("Anomaly score (1 - cosine)")
+ax.axhline(np.quantile(scores, 1 - alpha), color="red", ls="--", label="threshold")
+ax.legend()
+st.pyplot(fig)
 
 if use_vlm:
     kept = refine(scores, cands, s)

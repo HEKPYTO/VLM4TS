@@ -1,6 +1,7 @@
 import numpy as np
-import torch
 import open_clip
+import torch
+
 from src.render import series_to_pil
 
 
@@ -57,7 +58,9 @@ def _demo():
     scores, ts = m.predict_scores(s)
     assert len(scores) == 500
     cands = m.candidates(scores)
-    print(f"demo: series len={len(s)}, scores mean={scores.mean():.4f} max={scores.max():.4f} candidates={len(cands)}")
+    print(
+        f"demo: series len={len(s)}, scores mean={scores.mean():.4f} max={scores.max():.4f} candidates={len(cands)}"
+    )
     print(f"candidates sample: {cands[:10]}")
     return scores
 

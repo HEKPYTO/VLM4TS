@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "VLM4TS — zero-shot time-series anomaly detection via vision-language models (ViT4TS + VLM verification)"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "VLM4TS Portfolio", email = "vlm4ts@example.com" }]
+keywords = ["time-series", "anomaly-detection", "vision-language", "zero-shot"]
 dependencies = [
   "torch==2.4.0",
   "open-clip-torch==2.24.0",
@@ -16,9 +19,43 @@ dependencies = [
   "pytest==8.3.2",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "ruff==0.8.6",
+  "pre-commit>=3.7.0",
+]
+
+[dependency-groups]
+dev = [
+  "ruff==0.8.6",
+  "pre-commit>=3.7.0",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Treat warnings as errors only for our code (src.*). Third-party warnings remain warnings, not errors.
+# No blanket ignore — fix warnings in src.* instead of hiding them.
+addopts = "-q -W error::UserWarning:src.* -W error::DeprecationWarning:src.* -W error::FutureWarning:src.* -W error::RuntimeWarning:src.*"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".git", ".venv", "__pycache__", "assets"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501", "RUF012"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.uv]
+managed = true

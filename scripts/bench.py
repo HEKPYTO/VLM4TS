@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Benchmark ViT4TS — synthetic quick run + TSB-AD-U if present."""
-import argparse, pathlib, sys
+
+import argparse
+import pathlib
+import sys
+
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
+
 def f1_max(scores, labels):
-    scores = np.asarray(scores); labels = np.asarray(labels).astype(int)
+    scores = np.asarray(scores)
+    labels = np.asarray(labels).astype(int)
     best = 0
     for q in np.linspace(0.5, 0.99, 50):
         thresh = np.quantile(scores, q)
@@ -23,6 +29,7 @@ def f1_max(scores, labels):
             best = f1
     return best
 
+
 def synthetic_series(n=500, seed=0):
     rng = np.random.default_rng(seed)
     s = np.sin(np.linspace(0, 20, n)) + rng.normal(0, 0.15, n)
@@ -30,22 +37,27 @@ def synthetic_series(n=500, seed=0):
     # mix point spikes and shape anomalies (flat) — shape is hard for z-score
     for start in [100, 300]:
         if seed % 2 == 0:
-            s[start:start+10] += rng.choice([3, -3])
+            s[start : start + 10] += rng.choice([3, -3])
         else:
-            s[start:start+15] = np.linspace(s[start-1], s[start+15], 15)  # flat-ish shape anomaly
-        labels[start:start+10] = 1
+            s[start : start + 15] = np.linspace(
+                s[start - 1], s[start + 15], 15
+            )  # flat-ish shape anomaly
+        labels[start : start + 10] = 1
     return s, labels
+
 
 def window_hit(cands, labels, tol=112):
     """Relaxed detection: candidate within tol of any true label."""
-    true_idx = np.where(labels==1)[0]
-    if len(true_idx)==0 or len(cands)==0:
+    true_idx = np.where(labels == 1)[0]
+    if len(true_idx) == 0 or len(cands) == 0:
         return 0.0
     hits = sum(any(abs(c - t) <= tol for c in cands) for t in true_idx)
     return hits / len(true_idx)
 
+
 def run_quick():
     from src.vit4ts import ViT4TS
+
     print("quick benchmark: synthetic 3 series (ViT4TS)")
     m = ViT4TS(alpha=0.01, window_size=224)
     vit_f1s, hits = [], []
@@ -55,24 +67,35 @@ def run_quick():
         cands = m.candidates(scores)
         f1 = f1_max(scores, y)
         hit = window_hit(cands, y, tol=112)
-        vit_f1s.append(f1); hits.append(hit)
-        print(f" series {i}: F1-max={f1:.3f}  window-hit={hit:.2f}  candidates={len(cands)}  score@anomaly={scores[y==1].mean():.4f} vs bg={scores[y==0].mean():.4f}")
-    print(f"\navg ViT4TS F1-max={np.mean(vit_f1s):.3f} hit-rate={np.mean(hits):.2f} (paper reports +24.6% F1-max over TS baselines on TSB-AD-U)")
+        vit_f1s.append(f1)
+        hits.append(hit)
+        print(
+            f" series {i}: F1-max={f1:.3f}  window-hit={hit:.2f}  candidates={len(cands)}  score@anomaly={scores[y==1].mean():.4f} vs bg={scores[y==0].mean():.4f}"
+        )
+    print(
+        f"\navg ViT4TS F1-max={np.mean(vit_f1s):.3f} hit-rate={np.mean(hits):.2f} (paper reports +24.6% F1-max over TS baselines on TSB-AD-U)"
+    )
     if np.mean(hits) >= 0.5:
         print("trend reproduced: candidates overlap injected anomalies")
     else:
-        print("note: hit-rate <0.5 — synthetic shape not strongly flagged (try different seed/alpha)")
+        print(
+            "note: hit-rate <0.5 — synthetic shape not strongly flagged (try different seed/alpha)"
+        )
     return np.mean(vit_f1s), np.mean(hits)
+
 
 def run_tsbad(dataset_path):
     import pathlib as _pl
+
     if not _pl.Path(dataset_path).exists():
         print(f"{dataset_path} not found -> quick")
         return run_quick()
     # try quick CSV scan (up to 5 files), fallback to synthetic if none
     try:
         import pandas as pd
+
         from src.vit4ts import ViT4TS
+
         files = list(_pl.Path(dataset_path).rglob("*.csv"))[:5]
         if not files:
             return run_quick()
@@ -80,13 +103,15 @@ def run_tsbad(dataset_path):
         f1s = []
         for f in files:
             df = pd.read_csv(f)
-            val_col = [c for c in df.columns if "value" in c.lower() or c == df.columns[0]][0]
+            val_col = next((c for c in df.columns if "value" in c.lower()), df.columns[0])
             lab_col = [c for c in df.columns if "label" in c.lower() or "anomaly" in c.lower()]
             if not lab_col:
                 continue
-            s = df[val_col].to_numpy(); y = df[lab_col[0]].to_numpy().astype(int)
+            s = df[val_col].to_numpy()
+            y = df[lab_col[0]].to_numpy().astype(int)
             scores, _ = m.predict_scores(s[:2000])
-            y = y[: len(scores)]; scores = scores[: len(y)]
+            y = y[: len(scores)]
+            scores = scores[: len(y)]
             f1s.append(f1_max(scores, y))
             print(f" {f.name}: F1-max {f1s[-1]:.3f}")
         print(f"avg F1-max {np.mean(f1s):.3f} over {len(f1s)} files")
@@ -94,6 +119,7 @@ def run_tsbad(dataset_path):
     except Exception as e:
         print(f"TSB bench fallback: {e} -> quick")
         return run_quick()
+
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()

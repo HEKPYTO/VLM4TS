@@ -2,7 +2,9 @@ import base64
 import io
 import json
 import os
+
 from PIL import Image
+
 from src.render import series_to_pil
 
 
@@ -17,7 +19,8 @@ def call_vlm(full_img: Image.Image, prompt: str):
         from openai import OpenAI
 
         client = OpenAI(api_key=api_key)
-        buf = io.BytesIO(); full_img.save(buf, format="PNG")
+        buf = io.BytesIO()
+        full_img.save(buf, format="PNG")
         b64 = base64.b64encode(buf.getvalue()).decode()
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -34,7 +37,8 @@ def call_vlm(full_img: Image.Image, prompt: str):
             temperature=0,
         )
         text = resp.choices[0].message.content or ""
-        start = text.find("["); end = text.rfind("]") + 1
+        start = text.find("[")
+        end = text.rfind("]") + 1
         try:
             return json.loads(text[start:end]) if start != -1 and end > start else json.loads(text)
         except (json.JSONDecodeError, ValueError):
@@ -67,4 +71,4 @@ def refine(scores, candidates, series):
         if isinstance(mask, list) and len(mask) == len(series):
             return [c for c in candidates if 0 <= c < len(mask) and mask[c] == 1]
         return list(candidates)
-    return [c for c, m in zip(candidates, mask) if m == 1]
+    return [c for c, m in zip(candidates, mask, strict=False) if m == 1]

@@ -4,8 +4,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 
 def series_to_pil(series, window_size=224):

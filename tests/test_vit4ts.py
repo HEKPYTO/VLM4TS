@@ -1,5 +1,6 @@
 def test_vit4ts_scores_shape():
     import numpy as np
+
     from src.vit4ts import ViT4TS
 
     m = ViT4TS(alpha=0.01, window_size=224)
@@ -11,6 +12,7 @@ def test_vit4ts_scores_shape():
 
 def test_vit4ts_candidates():
     import numpy as np
+
     from src.vit4ts import ViT4TS
 
     m = ViT4TS(alpha=0.01, window_size=224)
@@ -22,6 +24,7 @@ def test_vit4ts_candidates():
 
 def test_vit4ts_short_series():
     import numpy as np
+
     from src.vit4ts import ViT4TS
 
     m = ViT4TS(alpha=0.01, window_size=224)
