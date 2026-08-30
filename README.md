@@ -41,7 +41,8 @@ uv run --extra dev python -m pytest -q
 uv run --extra dev pre-commit run --all-files
 uv export --frozen --no-dev --no-emit-project --no-annotate --no-header | uv run --extra dev pip-audit -r /dev/stdin --disable-pip --no-deps
 uv build
-tmpdir=$(mktemp -d); uv run --python 3.11 --with "$(pwd)"/dist/*.whl --no-project --directory "$tmpdir" python -c "import vlm4ts; print('wheel ok')"
+uv pip install --python .venv/bin/python --no-deps --reinstall dist/*.whl
+uv run --no-sync python -c "import vlm4ts; print('wheel ok')"
 docker compose config --quiet
 docker build -t vlm4ts-public-readiness:check .
 docker run --rm vlm4ts-public-readiness:check python -c "import vlm4ts; print('container ok')"

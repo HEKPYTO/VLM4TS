@@ -19,6 +19,11 @@ jobs:
           enable-cache: true
       - run: uv lock --check
       - run: uv sync --extra dev --frozen
+      - run: |
+          dependencies=$(uv tree --frozen --no-dev)
+          grep -Fq 'torch v2.13.0+cpu' <<< "$dependencies"
+          grep -Fq 'torchvision v0.28.0+cpu' <<< "$dependencies"
+          ! grep -Eq 'nvidia-|triton v' <<< "$dependencies"
       - run: uv run --extra dev ruff check . --output-format=github
       - run: uv run --extra dev ruff format --check .
       - run: uv run --extra dev python -m pytest -q
@@ -27,8 +32,8 @@ jobs:
       - run: uv export --frozen --no-dev --no-emit-project --no-annotate --no-header | uv run --extra dev pip-audit -r /dev/stdin --disable-pip --no-deps
       - run: uv build
       - run: |
-          tmpdir=$(mktemp -d)
-          uv run --python 3.11 --with "$(pwd)"/dist/*.whl --no-project --directory "$tmpdir" python -c "import vlm4ts.vit4ts, vlm4ts.render, vlm4ts.vlm_refine; print('wheel ok')"
+          uv pip install --python .venv/bin/python --no-deps --reinstall dist/*.whl
+          uv run --no-sync python -c "import vlm4ts.vit4ts, vlm4ts.render, vlm4ts.vlm_refine; print('wheel ok')"
       - run: docker compose config --quiet
       - run: docker build -t vlm4ts-public-readiness:check .
       - run: docker run --rm vlm4ts-public-readiness:check python -c "import vlm4ts.vit4ts, vlm4ts.render, vlm4ts.vlm_refine; print('container ok')"
