@@ -15,3 +15,5 @@ checkpoints/
 data/
 *.png
 *.jpg
+!assets/*.png
+!assets/*.jpg
