@@ -30,13 +30,13 @@ class ViT4TS:
         embs = torch.cat(embs)  # [N, 512]
         med = embs.median(dim=0).values
         med = med / med.norm().clamp(min=1e-8)
-        sim = (embs @ med).cpu().numpy()  # cosine to median
+        sim = (embs @ med).detach().cpu().numpy()  # cosine to median
         scores = 1.0 - sim  # anomaly = dissimilar
-        # align to original length via center padding
-        pad = n - len(scores)
-        left = pad // 2
-        right = n - len(scores) - left
-        aligned = np.concatenate([np.zeros(left), scores, np.zeros(right)])
+        # align scores to series: window i -> score at i (start), pad tail with last value
+        aligned = np.zeros(n)
+        aligned[: len(scores)] = scores
+        if len(scores) < n:
+            aligned[len(scores) :] = scores[-1]
         return aligned, np.arange(n)
 
     def candidates(self, scores):
