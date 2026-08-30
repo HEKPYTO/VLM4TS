@@ -79,10 +79,6 @@ is enabled, the rendered uploaded series is sent to OpenAI and may incur API
 costs. Do not include secrets in uploaded data. See OpenAI's
 [data controls documentation](https://developers.openai.com/api/docs/guides/your-data).
 
-Use this repository's Forgejo issues for questions and non-sensitive bug reports.
-Report vulnerabilities privately to `zoonyanapat@gmail.com`; do not post exploit
-details publicly.
-
 ## Verification
 
 ```bash
