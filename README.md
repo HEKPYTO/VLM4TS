@@ -1,12 +1,18 @@
 # VLM4TS-inspired prototype
 
-An independent educational prototype for time-series anomaly screening. It is inspired by [He et al.](https://arxiv.org/abs/2506.06836) and the [upstream VLM4TS repository](https://github.com/ZLHe0/VLM4TS), not an official implementation or a reproduction of its results.
+An independent educational prototype for time-series anomaly screening, inspired by [He et al.](https://arxiv.org/abs/2506.06836) and the [upstream VLM4TS repository](https://github.com/ZLHe0/VLM4TS). It is not an official implementation or a reproduction of the paper's results.
 
-The paper uses ViT-B/16, patch-level multi-scale cross-patch scoring, shared global y-limits, GPT-4o, and 11 NAB/NASA/YAHOO benchmark datasets. This prototype uses ViT-B/32 window embeddings, cosine distance to a median embedding, per-window autoscaling, and optional `gpt-4o-mini` verification.
+![Illustrative synthetic score curve](assets/score_curve.png)
 
-## Run
+*Illustrative synthetic output, not an evaluation result.*
 
-Python 3.11 is the only supported runtime.
+## How it works
+
+The prototype renders each sliding time-series window as a line plot, embeds it with CLIP ViT-B/32, and scores its cosine distance from the median window embedding. High-score windows become anomaly candidates. An optional `gpt-4o-mini` call receives one rendered full-series image and returns a keep/drop mask for those candidates.
+
+## Quick start
+
+[Python 3.11](https://www.python.org/) is the only supported runtime. Install [uv](https://docs.astral.sh/uv/), then run from the repository root:
 
 ```bash
 uv sync --extra dev
@@ -15,13 +21,27 @@ uv run python scripts/bench.py
 uv run streamlit run app.py
 ```
 
-The first scoring run downloads and caches the OpenAI CLIP checkpoint from Hugging Face; later runs can use that cache. `scripts/bench.py` is a synthetic smoke check only. It does not evaluate a public dataset or reproduce paper-reported results.
+The first scoring run downloads and caches the OpenAI CLIP checkpoint from Hugging Face. Later runs reuse that cache.
 
-## VLM disclosure
+## Input, privacy, and security
 
-VLM verification is optional. When enabled, the rendered uploaded series is sent to OpenAI using `gpt-4o-mini`; this may incur API costs. Without `OPENAI_API_KEY`, candidates are returned unchanged. By default, OpenAI documents up to 30-day abuse-monitoring retention; eligible customers may use modified or zero data-retention controls. See [Your data](https://developers.openai.com/api/docs/guides/your-data).
+The Streamlit app accepts a CSV containing a numeric `value` column, or uses its first column. All values must be finite numbers.
 
-The app accepts a CSV `value` column, or its first column, provided all values are finite numbers.
+VLM verification is optional. When enabled, the rendered uploaded series is sent to OpenAI using `gpt-4o-mini`; this may incur API costs. Without `OPENAI_API_KEY`, candidates are returned unchanged. Do not include secrets in uploaded data. OpenAI documents its retention controls in [Your data](https://developers.openai.com/api/docs/guides/your-data).
+
+Use this repository's Forgejo issues for questions and non-sensitive bug reports. Report vulnerabilities privately to `zoonyanapat@gmail.com`; do not post exploit details publicly. The default branch is supported until releases exist, after which only the latest release is supported.
+
+## Scope and limitations
+
+| | Paper | This prototype |
+| --- | --- | --- |
+| Vision encoder | ViT-B/16 | CLIP ViT-B/32 |
+| Scoring | Patch-level, multi-scale cross-patch | Window cosine distance from a median embedding |
+| Plot scaling | Shared global y-limits | Per-window autoscaling |
+| VLM | GPT-4o | Optional `gpt-4o-mini` |
+| Evaluation | 11 NAB/NASA/YAHOO datasets | Synthetic smoke data only |
+
+`scripts/bench.py` checks that the pipeline runs. It does not evaluate a public dataset, reproduce paper-reported results, or substantiate a performance claim.
 
 ## Layout
 
@@ -49,3 +69,7 @@ docker run --rm vlm4ts-public-readiness:check python -c "import vlm4ts; print('c
 ```
 
 CI is the clean Docker build gate.
+
+## License
+
+[MIT](LICENSE)
